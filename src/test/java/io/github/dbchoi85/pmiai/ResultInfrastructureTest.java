@@ -29,6 +29,14 @@ class ResultInfrastructureTest {
     }
 
     @Test
+    void throughputIsUndefinedForExperimentsWithoutADeclaredUnit() {
+        var samples = List.of(new BenchmarkSample("E3", "EPG_VERIFY", 1, 1, 0, 1,
+                0, 0, 100, 0, 100, 100, 0, true));
+        var summary = ResultStatistics.summarize("E3", "EPG_VERIFY", samples);
+        assertTrue(Double.isNaN(summary.throughputPerSecond()));
+    }
+
+    @Test
     void refusesToMixDifferentParameterCells() {
         var mixed = List.of(sample(10, 1, 0), sample(20, 10, 0));
         assertThrows(IllegalArgumentException.class,
