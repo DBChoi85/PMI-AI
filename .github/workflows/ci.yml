@@ -21,6 +21,17 @@ jobs:
         with:
           gradle-version: '8.14'
       - name: Test
-        run: gradle test
+        id: unit-tests
+        continue-on-error: true
+        run: gradle test --stacktrace
+      - name: Print JUnit test results
+        if: always()
+        shell: bash
+        run: |
+          echo "===== JUnit XML results ====="
+          find build/test-results/test -type f -name '*.xml' -print -exec cat {} \; || true
+      - name: Fail if unit tests failed
+        if: steps.unit-tests.outcome == 'failure'
+        run: exit 1
       - name: Compile JMH benchmarks
         run: gradle jmhClasses
