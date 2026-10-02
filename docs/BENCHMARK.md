@@ -38,7 +38,7 @@ All implementations evaluate the same protected action: `read /project/A/src/mod
 Implementations:
 
 - NoAuth: unconditional allow; lower-bound request-processing baseline.
-- JWT: compact JWT signed and verified with Ed25519 plus the common privilege policy.
+- JWT: compact JWT signed and verified with Ed25519; authorization reconstructs the privilege from the verified signed `exp`, `ops`, and `res` claims before applying the common privilege policy.
 - Static PMI: reused X.509 Attribute Certificate verification plus the common privilege policy.
 - Proposed: verified base PMI authority, attenuated child EPG verification, plus the common privilege policy.
 
@@ -72,7 +72,7 @@ Expected structural difference, not a performance assumption:
 - AC-per-Agent: each timed population creates N AA-issued ACs; timed population `AAcalls = N`.
 - Proposed: one Base AC is established during untimed setup; timed child-population `AAcalls = 0`. The architecture-level setup cost is separately reported as one Base-AC AA interaction.
 - `PopulationResult.authorityInteractions` denotes interactions created by that measured population only; it is a delta from the provider's pre-run interaction count.
-- AA/provider construction, including RSA-2048 AA key generation, occurs in JMH `@Setup(Level.Invocation)` and is outside the timed benchmark method.
+- AA/provider construction, including RSA-2048 AA key generation, occurs outside the timed population method. JMH uses setup state; the publication runner creates providers once before the warm-up/measured repetitions for each population-size cell.
 - AA interaction count denotes issuance calls in the local prototype. AC/EPG verification does not increment this counter.
 - Network/remote-AA round-trip latency is intentionally excluded from E2. The experiment measures local cryptographic and credential-processing cost.
 - Base-AC issuance/validation and root-agent key establishment for Proposed occur outside child-population timing.
@@ -148,7 +148,7 @@ The canonical raw schema stores timing values in nanoseconds:
 
 `experiment, implementation, run, iteration, agent_count, depth, keygen_ns, issuance_ns, verification_ns, authorization_ns, total_ns, credential_bytes, aa_interactions, success`
 
-Summary generation reports mean, median, p95, p99, standard deviation, and throughput. Percentiles are calculated from raw per-sample values rather than inferred from JMH AverageTime aggregates.
+Summary generation reports mean, median, p95, p99, standard deviation, and throughput where the experiment defines a meaningful throughput unit. E1 reports authorization decisions per second and E2 reports agent lifecycles per second. E3-E5 export `NaN` for throughput rather than presenting chain/policy operations as equivalent request throughput. Percentiles are calculated from raw per-sample values rather than inferred from JMH AverageTime aggregates.
 
 Environment metadata records timestamp, OS/version/architecture, available processors, JVM maximum memory, Java version/vendor, JVM arguments, Git commit, and crypto dependency information. JVM maximum memory is not presented as physical system RAM; physical RAM/CPU model should additionally be recorded in the publication environment description when the benchmark host is finalized.
 
@@ -247,3 +247,13 @@ E4/E5 values must not be added to or compared with E1 as though all three were i
 Current prototype limitations relevant to result interpretation are documented in `ARCHITECTURE.md`: replay prevention, a configured maximum delegation-depth policy, cryptographic parent-grant identifiers, and independently EPG-signed assurance-provenance fields are outside the evaluated implementation. E6 therefore reports deterministic correctness for implemented invariants rather than a complete production-security claim.
 
 A reproduced public agent-native delegation implementation remains a future comparative baseline; published measurements from other hardware remain contextual reference points only.
+
+
+## Final benchmark-readiness controls
+
+Before publication collection, the harness applies the following reproducibility controls:
+
+- JWT authorization state is reconstructed only from successfully verified signed claims.
+- Mini-PMI serializes privilege operations in lexicographic order before embedding them in an Attribute Certificate.
+- Publication E2 completes AA/provider setup before warm-up and measured population repetitions for each population-size cell.
+- E1 and E2 are the only canonical summaries with a defined throughput unit; E3-E5 retain latency distributions without manufacturing a cross-experiment throughput interpretation.
