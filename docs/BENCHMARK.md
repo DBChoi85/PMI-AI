@@ -69,11 +69,13 @@ Metrics:
 
 Expected structural difference, not a performance assumption:
 
-- AC-per-Agent: AA issuance interactions grow with N; `AAcalls = N`.
-- Proposed: one base-AC issuance establishes the authority state; EPG derivation does not require a new AA issuance for each child; `AAcalls = 1`.
+- AC-per-Agent: each timed population creates N AA-issued ACs; timed population `AAcalls = N`.
+- Proposed: one Base AC is established during untimed setup; timed child-population `AAcalls = 0`. The architecture-level setup cost is separately reported as one Base-AC AA interaction.
+- `PopulationResult.authorityInteractions` denotes interactions created by that measured population only; it is a delta from the provider's pre-run interaction count.
+- AA/provider construction, including RSA-2048 AA key generation, occurs in JMH `@Setup(Level.Invocation)` and is outside the timed benchmark method.
 - AA interaction count denotes issuance calls in the local prototype. AC/EPG verification does not increment this counter.
 - Network/remote-AA round-trip latency is intentionally excluded from E2. The experiment measures local cryptographic and credential-processing cost.
-- Base-AC setup for Proposed occurs outside the child-population timing. Its one-time authority interaction is still reported separately.
+- Base-AC issuance/validation and root-agent key establishment for Proposed occur outside child-population timing.
 - AC-per-Agent key-generation time is zero in the current prototype because an AC is issued to an agent identifier and does not generate a new subject key; no artificial key-generation cost is added.
 
 ### E3: delegation depth
