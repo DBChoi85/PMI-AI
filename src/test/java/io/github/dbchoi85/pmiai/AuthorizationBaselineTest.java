@@ -52,7 +52,7 @@ class AuthorizationBaselineTest {
         String[] parts = token.split("\\.", -1);
         byte[] payload = java.util.Base64.getUrlDecoder().decode(parts[1]);
         String changed = new String(payload, java.nio.charset.StandardCharsets.UTF_8)
-                .replace("\\"read\\"", "\\"execute\\"");
+                .replace("\"read\"", "\"execute\"");
         String tampered = parts[0] + "." + java.util.Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(changed.getBytes(java.nio.charset.StandardCharsets.UTF_8)) + "." + parts[2];
 
