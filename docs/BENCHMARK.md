@@ -27,7 +27,7 @@ A valid delegation must satisfy:
 1. **AC-per-Agent** — the AA issues an X.509 Attribute Certificate for each agent.
 2. **Base AC + EPG (proposed)** — the AA issues and validates one base AC for the root agent. The root then signs task-scoped Ephemeral Privilege Grants (EPGs) for children.
 
-E1 includes NoAuth, JWT, static-PMI authorization, and the proposed Base AC + EPG path. Context/action policy and NIST AAL provenance remain later ablations.
+E1 includes NoAuth, JWT, static-PMI authorization, and the proposed Base AC + EPG path. E4 and E5 separately evaluate the incremental context/action-policy and human-assurance-policy decision paths.
 
 ## Experiments
 
@@ -186,19 +186,13 @@ Summary cells are grouped by experiment, implementation, agent count, and delega
 
 The existing `exportBenchmarkMetadata -PrawFile=...` task remains available for re-summarizing a canonical raw CSV without rerunning the experiment.
 
-## Next benchmark increments
+## Implemented policy and correctness experiments
 
-- E4 task/context policy complexity (1, 5, 10, 20, 50, 100 rules)
-- E5 NIST authentication-assurance provenance ablation
-- E6 adversarial/correctness cases: privilege escalation, resource expansion, TTL expansion, expiration, forged signature, parent invalidation, depth violation, context violation, and insufficient assurance
-- reproduced agent-native delegation baseline (prefer a public reference implementation rather than an ad-hoc rewrite)
+### E4: context-policy evaluation overhead
 
+Context-policy overhead is measured with 1, 10, and 100 required key/value rules. The benchmark request must satisfy the privilege, action policy, task identifier, and every configured context rule. This isolates deterministic policy-evaluation overhead; it does not invoke an AI risk classifier. EPG signature/credential verification is not part of E4 and is measured separately in E1. E4 must therefore not be reported as end-to-end authorization latency.
 
-### E4: task/context authorization
-
-Context-policy overhead is measured with 1, 10, and 100 required key/value rules. The benchmark request must satisfy the privilege, action policy, task identifier, and every configured context rule. This isolates deterministic policy-evaluation overhead; it does not invoke an AI risk classifier.
-
-### E5: NIST assurance provenance
+### E5: assurance-policy evaluation / step-up-trigger overhead
 
 `AuthorityProvenance` records the human/root principal reference, IAL, AAL, authentication time, issuer, and policy reference. IAL and AAL describe the human authority source; an AI agent is not itself labeled AAL1/AAL2/AAL3.
 
@@ -208,7 +202,7 @@ For each protected action, the relying-party `ActionPolicy` declares a `Required
 - `STEP_UP_REQUIRED`: privilege/context are valid but the preserved human AAL provenance is below `RequiredAAL`.
 - `DENY`: privilege, action, resource, task, or context policy fails.
 
-E5 measures the local AAL comparison/policy-decision path and the cost of producing a step-up trigger. It explicitly excludes the time required for a human to complete MFA or another authentication ceremony.
+E5 measures the local AAL comparison/policy-decision path and the cost of producing a step-up trigger. EPG signature/credential verification is not part of E5 and is measured separately in E1. E5 must therefore not be reported as end-to-end authorization latency. It explicitly excludes the time required for a human to complete MFA or another authentication ceremony.
 
 
 ### E6: adversarial authorization correctness
@@ -236,3 +230,20 @@ Run:
 ```
 
 The standalone suite prints a CSV-like case report and exits non-zero if any defined adversarial case is not blocked with the expected semantics.
+
+
+## Interpretation boundaries
+
+E1, E4, and E5 intentionally measure different layers:
+
+```text
+E1: credential verification + common privilege policy
+E4: incremental context/action-policy evaluation
+E5: incremental human-assurance policy / step-up decision
+```
+
+E4/E5 values must not be added to or compared with E1 as though all three were identical end-to-end request paths unless a later integrated benchmark explicitly composes those layers.
+
+Current prototype limitations relevant to result interpretation are documented in `ARCHITECTURE.md`: replay prevention, a configured maximum delegation-depth policy, cryptographic parent-grant identifiers, and independently EPG-signed assurance-provenance fields are outside the evaluated implementation. E6 therefore reports deterministic correctness for implemented invariants rather than a complete production-security claim.
+
+A reproduced public agent-native delegation implementation remains a future comparative baseline; published measurements from other hardware remain contextual reference points only.

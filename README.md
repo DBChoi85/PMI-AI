@@ -26,8 +26,13 @@ The proposed path reuses an established PMI authority state instead of requestin
 - AC-per-Agent baseline
 - Base-AC + signed Ephemeral Privilege Grant (EPG) path
 - privilege/resource/lifetime attenuation checks
-- JMH issuance and verification benchmarks
-- delegation-depth benchmark (1, 2, 3, 5, 10)
+- E1 NoAuth/JWT/static-PMI/Base-AC+EPG authorization comparison
+- E2 ephemeral-agent population scalability (1, 10, 100, 1K, 10K)
+- E3 delegation-depth benchmark (1, 2, 3, 5, 10)
+- E4 context/action-policy overhead
+- E5 human IAL/AAL provenance and step-up policy overhead
+- E6 adversarial authorization correctness suite
+- canonical publication raw/summary/environment result pipeline
 - JUnit correctness tests
 
 See [Benchmark specification](docs/BENCHMARK.md) and [Architecture](docs/ARCHITECTURE.md).
@@ -40,21 +45,18 @@ See [Benchmark specification](docs/BENCHMARK.md) and [Architecture](docs/ARCHITE
 ## Run
 
 ```bash
-gradle test
-gradle jmh
+./gradlew test
+./gradlew jmh
+GIT_COMMIT=$(git rev-parse HEAD) ./gradlew publicationBenchmark
+./gradlew adversarialSuite
 ```
 
-JMH CSV output is written under `build/results/jmh/results.csv`.
+JMH CSV output is written under `build/results/jmh/results.csv`. Publication samples are written separately under `results/`; JMH aggregate output is not used as publication raw data.
 
 ## Benchmark policy
 
 Reported numbers from AIP and other related systems are not treated as direct performance comparisons unless their implementation is reproduced under the same benchmark environment.
 
-## Planned increments
+## Remaining comparative work
 
-1. NoAuth/JWT/static-PMI authorization ablations
-2. population scalability: 1, 10, 100, 1K, 10K agents
-3. task/context action authorization
-4. NIST authentication-assurance provenance
-5. adversarial delegation/correctness suite
-6. reproduced public agent-native delegation baseline
+The implemented E1-E6 harness is complete. A reproduced public agent-native delegation implementation remains a future comparative baseline; results reported by external papers are not treated as same-environment performance measurements.
