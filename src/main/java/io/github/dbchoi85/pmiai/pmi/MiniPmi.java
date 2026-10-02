@@ -74,6 +74,6 @@ public final class MiniPmi {
     public void resetInteractions() { interactions.set(0); }
 
     private static String encode(Privilege p) {
-        return String.join(",", p.operations()) + "|" + p.resource() + "|" + p.expiresAtEpochSecond();
+        return p.operations().stream().sorted().collect(java.util.stream.Collectors.joining(","))\n                + "|" + p.resource() + "|" + p.expiresAtEpochSecond();
     }
 }
