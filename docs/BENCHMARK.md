@@ -165,3 +165,20 @@ The last command reads the canonical raw CSV and writes `results/summary/summary
 - E5 NIST authentication-assurance provenance ablation
 - E6 adversarial/correctness cases: privilege escalation, resource expansion, TTL expansion, expiration, forged signature, parent invalidation, depth violation, context violation, and insufficient assurance
 - reproduced agent-native delegation baseline (prefer a public reference implementation rather than an ad-hoc rewrite)
+
+
+### E4: task/context authorization
+
+Context-policy overhead is measured with 1, 10, and 100 required key/value rules. The benchmark request must satisfy the privilege, action policy, task identifier, and every configured context rule. This isolates deterministic policy-evaluation overhead; it does not invoke an AI risk classifier.
+
+### E5: NIST assurance provenance
+
+`AuthorityProvenance` records the human/root principal reference, IAL, AAL, authentication time, issuer, and policy reference. IAL and AAL describe the human authority source; an AI agent is not itself labeled AAL1/AAL2/AAL3.
+
+For each protected action, the relying-party `ActionPolicy` declares a `RequiredAAL`. Authorization produces one of three decisions:
+
+- `ALLOW`: privilege/context are valid and human AAL provenance satisfies the action policy.
+- `STEP_UP_REQUIRED`: privilege/context are valid but the preserved human AAL provenance is below `RequiredAAL`.
+- `DENY`: privilege, action, resource, task, or context policy fails.
+
+E5 measures the local AAL comparison/policy-decision path and the cost of producing a step-up trigger. It explicitly excludes the time required for a human to complete MFA or another authentication ceremony.
