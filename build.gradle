@@ -44,3 +44,14 @@ jmh {
     resultsFile = project.file("${project.layout.buildDirectory.get()}/results/jmh/results.csv")
     profilers = []
 }
+
+
+tasks.register('exportBenchmarkMetadata', JavaExec) {
+    group = 'benchmark'
+    description = 'Write results/environment.json and optionally summarize a raw benchmark CSV.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.dbchoi85.pmiai.results.ResultExportMain'
+    if (project.hasProperty('rawFile')) {
+        args project.property('rawFile')
+    }
+}

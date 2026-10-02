@@ -127,9 +127,37 @@ Do not compare absolute latency from another paper directly with these measureme
 
 ## Result handling
 
-Generated measurements belong under `build/results/jmh/`; raw research datasets intended for publication should be copied to `results/raw/` with an accompanying environment manifest.
+Generated JMH measurements belong under `build/results/jmh/`. Paper datasets use the following stable layout:
 
-Record at minimum: OS, CPU, cores, RAM, Java version, crypto/provider version, Git commit, benchmark parameters, and timestamp.
+```text
+results/
+  raw/
+    e1_authorization.csv
+    e2_lifecycle.csv
+    e3_delegation.csv
+  summary/
+    summary.csv
+  environment.json
+```
+
+The canonical raw schema stores timing values in nanoseconds:
+
+`experiment, implementation, run, iteration, agent_count, depth, keygen_ns, issuance_ns, verification_ns, authorization_ns, total_ns, credential_bytes, aa_interactions, success`
+
+Summary generation reports mean, median, p95, p99, standard deviation, and throughput. Percentiles are calculated from raw per-sample values rather than inferred from JMH AverageTime aggregates.
+
+Environment metadata records timestamp, OS/version/architecture, available processors, JVM maximum memory, Java version/vendor, JVM arguments, Git commit, and crypto dependency information. JVM maximum memory is not presented as physical system RAM; physical RAM/CPU model should additionally be recorded in the publication environment description when the benchmark host is finalized.
+
+Typical commands:
+
+```bash
+./gradlew clean test jmhClasses
+./gradlew jmh
+GIT_COMMIT=$(git rev-parse HEAD) ./gradlew exportBenchmarkMetadata
+GIT_COMMIT=$(git rev-parse HEAD) ./gradlew exportBenchmarkMetadata -PrawFile=results/raw/e2_lifecycle.csv
+```
+
+The last command reads the canonical raw CSV and writes `results/summary/summary.csv`. JMH's own CSV remains a runner output; experiment-specific raw samples should be converted/exported into the canonical schema before paper analysis.
 
 ## Next benchmark increments
 
