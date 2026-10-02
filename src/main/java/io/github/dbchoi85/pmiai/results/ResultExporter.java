@@ -8,7 +8,7 @@ import java.util.List;
 
 public final class ResultExporter {
     private static final String RAW_HEADER = "experiment,implementation,run,iteration,agent_count,depth,keygen_ns,issuance_ns,verification_ns,authorization_ns,total_ns,credential_bytes,aa_interactions,success";
-    private static final String SUMMARY_HEADER = "experiment,implementation,samples,mean_ns,median_ns,p95_ns,p99_ns,stddev_ns,throughput_per_second";
+    private static final String SUMMARY_HEADER = "experiment,implementation,agent_count,depth,samples,mean_ns,median_ns,p95_ns,p99_ns,stddev_ns,throughput_per_second";
     private final ObjectMapper mapper = new ObjectMapper();
 
     public void writeRaw(Path path, List<BenchmarkSample> samples) throws IOException {
@@ -29,9 +29,9 @@ public final class ResultExporter {
         var lines = new java.util.ArrayList<String>();
         lines.add(SUMMARY_HEADER);
         for (var s : summaries) lines.add(String.join(",", s.experiment(), s.implementation(),
-                Integer.toString(s.samples()), Double.toString(s.meanNs()), Double.toString(s.medianNs()),
-                Double.toString(s.p95Ns()), Double.toString(s.p99Ns()), Double.toString(s.stddevNs()),
-                Double.toString(s.throughputPerSecond())));
+                Integer.toString(s.agentCount()), Integer.toString(s.depth()), Integer.toString(s.samples()),
+                Double.toString(s.meanNs()), Double.toString(s.medianNs()), Double.toString(s.p95Ns()),
+                Double.toString(s.p99Ns()), Double.toString(s.stddevNs()), Double.toString(s.throughputPerSecond())));
         Files.write(path, lines);
     }
 

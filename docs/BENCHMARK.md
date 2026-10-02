@@ -152,16 +152,39 @@ Summary generation reports mean, median, p95, p99, standard deviation, and throu
 
 Environment metadata records timestamp, OS/version/architecture, available processors, JVM maximum memory, Java version/vendor, JVM arguments, Git commit, and crypto dependency information. JVM maximum memory is not presented as physical system RAM; physical RAM/CPU model should additionally be recorded in the publication environment description when the benchmark host is finalized.
 
-Typical commands:
+Two execution paths are intentionally kept separate.
+
+JMH remains the microbenchmark validation path:
 
 ```bash
 ./gradlew clean test jmhClasses
 ./gradlew jmh
-GIT_COMMIT=$(git rev-parse HEAD) ./gradlew exportBenchmarkMetadata
-GIT_COMMIT=$(git rev-parse HEAD) ./gradlew exportBenchmarkMetadata -PrawFile=results/raw/e2_lifecycle.csv
 ```
 
-The last command reads the canonical raw CSV and writes `results/summary/summary.csv`. JMH's own CSV remains a runner output; experiment-specific raw samples should be converted/exported into the canonical schema before paper analysis.
+JMH output under `build/results/jmh/` is not treated as publication raw samples.
+
+The publication-data path executes E1-E5 directly and records every measured repetition in the canonical schema:
+
+```bash
+GIT_COMMIT=$(git rev-parse HEAD) ./gradlew publicationBenchmark
+```
+
+Defaults are 3 runs, 3 discarded warm-ups per parameter cell, and 10 recorded iterations. They can be overridden explicitly:
+
+```bash
+GIT_COMMIT=$(git rev-parse HEAD) ./gradlew publicationBenchmark \
+  -Pruns=10 -Piterations=10 -Pwarmups=5
+```
+
+This command writes:
+
+- `results/raw/publication.csv`
+- `results/summary/summary.csv`
+- `results/environment.json`
+
+Summary cells are grouped by experiment, implementation, agent count, and delegation depth so E2 population sizes and E3 depths are never pooled into the same percentile distribution. E4/E5 context-rule counts are encoded in their implementation labels because they are neither agent counts nor delegation depths.
+
+The existing `exportBenchmarkMetadata -PrawFile=...` task remains available for re-summarizing a canonical raw CSV without rerunning the experiment.
 
 ## Next benchmark increments
 

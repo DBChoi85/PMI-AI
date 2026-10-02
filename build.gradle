@@ -63,3 +63,16 @@ tasks.register('adversarialSuite', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'io.github.dbchoi85.pmiai.security.AdversarialSuiteMain'
 }
+
+
+tasks.register('publicationBenchmark', JavaExec) {
+    group = 'benchmark'
+    description = 'Run E1-E5 and write canonical publication raw/summary/environment results.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.dbchoi85.pmiai.results.PublicationBenchmarkMain'
+    ['runs', 'iterations', 'warmups'].each { key ->
+        if (project.hasProperty(key)) {
+            systemProperty 'pmiai.' + key, project.property(key)
+        }
+    }
+}
