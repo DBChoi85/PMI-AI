@@ -135,9 +135,9 @@ public final class PublicationBenchmarkMain {
                 long e5Ns = System.nanoTime() - start;
 
                 if (i >= 0) {
-                    out.add(sample("E4", "CONTEXT_POLICY_" + rules, run, i + 1, rules, 0,
+                    out.add(sample("E4", "CONTEXT_POLICY_" + rules, run, i + 1, 0, 0,
                             0, 0, 0, e4Ns, e4Ns, 0, 0, e4 == AuthorizationDecision.ALLOW));
-                    out.add(sample("E5", "AAL_STEP_UP_" + rules, run, i + 1, rules, 0,
+                    out.add(sample("E5", "AAL_STEP_UP_" + rules, run, i + 1, 0, 0,
                             0, 0, 0, e5Ns, e5Ns, 0, 0, e5 == AuthorizationDecision.STEP_UP_REQUIRED));
                 }
             }
