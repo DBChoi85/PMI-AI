@@ -37,8 +37,8 @@ public class ContextAssuranceBenchmark {
         for (int i = 0; i < contextRules; i++) attributes.put("rule-" + i, "value-" + i);
         matchingContext = new AuthorizationContext("task-42", attributes);
 
-        aalSatisfied = new ContextAssuranceAuthorizer(privilege, provenanceAal3, policy);
-        stepUpRequired = new ContextAssuranceAuthorizer(privilege, provenanceAal1, policy);
+        aalSatisfied = new ContextAssuranceAuthorizer(privilege, provenanceAal3, policy, attributes);
+        stepUpRequired = new ContextAssuranceAuthorizer(privilege, provenanceAal1, policy, attributes);
     }
 
     @Benchmark
