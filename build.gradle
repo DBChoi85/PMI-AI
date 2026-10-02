@@ -20,7 +20,18 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 
-test { useJUnitPlatform() }
+test {
+    useJUnitPlatform()
+
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+        showStandardStreams = true
+    }
+}
 
 jmh {
     warmupIterations = 5
