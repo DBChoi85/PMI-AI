@@ -61,15 +61,18 @@ public final class PublicationBenchmarkMain {
 
     private static void runE2(List<BenchmarkSample> out, int run, int iterations, int warmups) {
         for (int n : new int[]{1, 10, 100, 1000, 10000}) {
-            for (int i = -warmups; i < iterations; i++) {
-                long now = Instant.now().getEpochSecond();
-                var base = new Privilege(Set.of("read", "write", "execute"), "/project/A/**", now + 86400);
-                var child = new Privilege(Set.of("read", "write"), "/project/A/src/**", now + 86400);
+            long now = Instant.now().getEpochSecond();
+            var base = new Privilege(Set.of("read", "write", "execute"), "/project/A/**", now + 86400);
+            var child = new Privilege(Set.of("read", "write"), "/project/A/src/**", now + 86400);
 
-                var ac = PopulationBenchmarkRunner.runAcPerAgent(n,
-                        new AcPerAgentProvider(new MiniPmi(), child));
-                var proposed = PopulationBenchmarkRunner.runProposed(n,
-                        new EpgProvider(new MiniPmi(), base), child);
+            // Untimed authority setup: RSA AA key generation and Proposed Base-AC establishment
+            // are completed before this parameter cell's warm-up and measured populations.
+            var acProvider = new AcPerAgentProvider(new MiniPmi(), child);
+            var proposedProvider = new EpgProvider(new MiniPmi(), base);
+
+            for (int i = -warmups; i < iterations; i++) {
+                var ac = PopulationBenchmarkRunner.runAcPerAgent(n, acProvider);
+                var proposed = PopulationBenchmarkRunner.runProposed(n, proposedProvider, child);
                 if (i >= 0) {
                     out.add(sample("E2", ac.implementation(), run, i + 1, n, 0, ac.keyGenerationNs(),
                             ac.issuanceNs(), ac.verificationNs(), 0, ac.totalNs(), ac.credentialBytes(),
