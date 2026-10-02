@@ -80,11 +80,26 @@ Expected structural difference, not a performance assumption:
 
 Depths: 1, 2, 3, 5, 10.
 
+E3 separates chain construction from chain verification. Chain construction includes generation of the per-hop Ed25519 key pairs and signing of each EPG. Verification operates on a chain prepared outside the measured method and validates each hop against the privilege established by the preceding hop.
+
+Per-hop validation includes:
+
+- signature validity
+- operation/resource/lifetime attenuation against the immediate parent
+- expected parent reference
+- exact delegation-depth progression
+- issuer/subject agent continuity
+
+The generated benchmark chain reduces lifetime at every hop so that attenuation is exercised rather than merely reusing an identical privilege object.
+
 Metrics:
 
+- chain construction latency
 - chain verification latency
 - encoded credential/chain size
-- per-hop marginal verification cost
+- per-hop marginal construction and verification cost (derived during analysis)
+
+Negative tests cover privilege escalation, lifetime extension, broken parent linkage, invalid depth, and signed-field/signature tampering.
 
 This experiment is the preferred location for a later reproduced AIP/capability-delegation baseline because it exercises comparable multi-hop semantics.
 
