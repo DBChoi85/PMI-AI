@@ -28,8 +28,14 @@ jobs:
         if: always()
         shell: bash
         run: |
-          echo "===== JUnit XML results ====="
-          find build/test-results/test -type f -name '*.xml' -print -exec cat {} \; || true
+          echo "===== Gradle test outputs ====="
+          if [ -d build/test-results/test ]; then
+            find build/test-results/test -type f -name '*.xml' -print -exec cat {} \;
+          else
+            echo "JUnit XML results were not generated; Gradle did not reach or complete test execution."
+            echo "Existing build outputs:"
+            find build -maxdepth 3 -type f -print 2>/dev/null || true
+          fi
       - name: Fail if unit tests failed
         if: steps.unit-tests.outcome == 'failure'
         run: exit 1
