@@ -53,7 +53,9 @@ public final class MiniPmi {
 
     public boolean verify(X509AttributeCertificateHolder ac) {
         try {
-            ac.checkValidity(new Date());
+            if (!ac.isValidOn(new Date())) {
+                return false;
+            }
             return ac.isSignatureValid(new JcaContentVerifierProviderBuilder().build(aaKeyPair.getPublic()));
         } catch (Exception e) {
             return false;
