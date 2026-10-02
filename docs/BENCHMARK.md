@@ -82,7 +82,9 @@ Expected structural difference, not a performance assumption:
 
 Depths: 1, 2, 3, 5, 10.
 
-E3 separates chain construction from chain verification. Chain construction includes generation of the per-hop Ed25519 key pairs and signing of each EPG. Verification operates on a chain prepared outside the measured method and validates each hop against the privilege established by the preceding hop.
+E3 separates chain construction from chain verification with independent JMH states. The construction state contains only the service, depth, and root privilege; it does not pre-build a chain before the measured method. Chain construction therefore measures generation of the per-hop Ed25519 key pairs and signing of each EPG without an immediately preceding unmeasured construction at the same depth.
+
+The verification state builds a fresh valid chain in `@Setup(Level.Invocation)`, outside the measured method. Verification therefore operates on a pre-built chain and validates each hop against the privilege established by the preceding hop. Encoded-chain-size measurement uses the same pre-built verification state and is not interpreted as construction latency.
 
 Per-hop validation includes:
 
