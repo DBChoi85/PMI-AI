@@ -55,3 +55,11 @@ tasks.register('exportBenchmarkMetadata', JavaExec) {
         args project.property('rawFile')
     }
 }
+
+
+tasks.register('adversarialSuite', JavaExec) {
+    group = 'verification'
+    description = 'Run the E6 adversarial authorization correctness suite.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.dbchoi85.pmiai.security.AdversarialSuiteMain'
+}
