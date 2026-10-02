@@ -17,6 +17,7 @@ class MiniPmiTest {
         var ac = pmi.issue("agent-1", privilege);
         assertTrue(pmi.verify(ac));
         assertEquals(privilege.resource(), pmi.readPrivilege(ac).resource());
+        assertEquals(privilege.operations(), pmi.readPrivilege(ac).operations());
         assertEquals(1, pmi.interactions());
     }
 }
