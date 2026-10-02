@@ -43,11 +43,11 @@ The prototype EPG contains:
 - child public key
 - Ed25519 signature
 
-The current JSON representation is a research prototype, not a proposed wire standard.
+The JSON representation is used for storage/size measurement only and is not a proposed wire standard. Signatures do not depend on JSON serialization. The signing input uses a versioned, length-prefixed binary representation with operations sorted lexicographically, so equivalent privilege sets produce deterministic signing bytes.
 
 ## Security invariants
 
-A derived privilege is valid only when its operation set, resource scope, and lifetime are no broader than its parent. Each grant is signed by the parent agent. Later increments will add explicit maximum delegation depth, replay identifiers, context constraints, action policy, and assurance provenance.
+A derived privilege is valid only when its operation set, resource scope, and lifetime are no broader than its parent. Resource scopes use path-boundary semantics: for example, `/project/A/**` includes `/project/A/src/**` but not the sibling prefix `/project/AB/**`. Each grant is signed by the parent agent, and task ID, parent ID, privilege, delegation depth, authority ID, subject key, and other grant fields are covered by the signature. Later increments will add explicit maximum delegation depth, replay identifiers, context constraints, action policy, and assurance provenance.
 
 ## PMI implementation
 
