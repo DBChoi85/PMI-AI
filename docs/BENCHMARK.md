@@ -52,20 +52,29 @@ Credential lifecycle benchmarks separately measure key generation, issuance/dele
 
 Target populations: 1, 10, 100, 1,000, and 10,000 agents.
 
+E2 uses `SingleShotTime` because each benchmark invocation represents creation and validation of an entire agent population rather than a steady-state single credential operation. Three warm-up invocations, ten measured invocations, and three forks are used for each population size.
+
 Metrics:
 
 - total lifecycle time
 - issuance/delegation throughput
-- credential bytes
+- credential bytes (aggregate population bytes)
 - AA interaction count
 - key-generation time (reported separately)
+- issuance/delegation time
+- verification time
+- successful verification count
 - component-level lifecycle latency (key generation, issuance/delegation, verification)
 - total proposed lifecycle latency (key generation + EPG issuance + verification)
 
 Expected structural difference, not a performance assumption:
 
-- AC-per-Agent: AA interactions grow with N.
-- Proposed: one base-AC issuance/validation establishes the authority state; EPG derivation does not require a new AA issuance for each child.
+- AC-per-Agent: AA issuance interactions grow with N; `AAcalls = N`.
+- Proposed: one base-AC issuance establishes the authority state; EPG derivation does not require a new AA issuance for each child; `AAcalls = 1`.
+- AA interaction count denotes issuance calls in the local prototype. AC/EPG verification does not increment this counter.
+- Network/remote-AA round-trip latency is intentionally excluded from E2. The experiment measures local cryptographic and credential-processing cost.
+- Base-AC setup for Proposed occurs outside the child-population timing. Its one-time authority interaction is still reported separately.
+- AC-per-Agent key-generation time is zero in the current prototype because an AC is issued to an agent identifier and does not generate a new subject key; no artificial key-generation cost is added.
 
 ### E3: delegation depth
 
