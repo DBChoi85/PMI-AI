@@ -1,0 +1,12 @@
+package io.github.dbchoi85.pmiai.security;
+
+public enum AttackCategory {
+    SIGNATURE_TAMPERING,
+    OPERATION_ESCALATION,
+    RESOURCE_ESCALATION,
+    EXPIRED_GRANT,
+    CONTEXT_MISMATCH,
+    BROKEN_PARENT,
+    INVALID_DEPTH,
+    INSUFFICIENT_AAL
+}
