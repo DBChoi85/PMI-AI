@@ -33,7 +33,7 @@ NoAuth, JWT, static-PMI authorization, context/action policy, and NIST AAL prove
 
 ### E1: credential operation overhead
 
-JMH benchmarks issuance/delegation and verification separately. Key generation, credential construction, signing, and verification must not be silently conflated when interpreting results.
+JMH benchmarks key generation, issuance/delegation, verification, and total lifecycle cost as distinct operations. EPG issuance receives a pre-generated child public key so that key-generation time is not silently included in delegation latency. The AC-per-Agent path does not generate an agent key because the current prototype AC is issued to an agent identifier rather than a newly generated subject key; adding artificial key generation to that baseline would distort the credential comparison.
 
 Metrics: mean latency, error, sample count; final analysis will additionally report median/p95/p99 from raw samples where applicable.
 
@@ -48,6 +48,8 @@ Metrics:
 - credential bytes
 - AA interaction count
 - key-generation time (reported separately)
+- component-level lifecycle latency (key generation, issuance/delegation, verification)
+- total proposed lifecycle latency (key generation + EPG issuance + verification)
 
 Expected structural difference, not a performance assumption:
 
@@ -67,6 +69,15 @@ Metrics:
 This experiment is the preferred location for a later reproduced AIP/capability-delegation baseline because it exercises comparable multi-hop semantics.
 
 ## Methodology
+
+Lifecycle measurement boundaries:
+
+- `agentKeyGeneration`: Ed25519 child key generation only.
+- `acPerAgentIssuance`: AA-side AC construction/signing only.
+- `epgIssuanceWithPreGeneratedKey`: EPG construction/signing using a child public key prepared outside the measured operation.
+- `acVerification` and `epgVerification`: verification only; credentials are prepared outside the measured operation.
+- `epgTotalLifecycle`: child key generation + EPG issuance + EPG verification.
+- Base-AC establishment remains trial setup and is not charged to every ephemeral child.
 
 Default JMH configuration:
 

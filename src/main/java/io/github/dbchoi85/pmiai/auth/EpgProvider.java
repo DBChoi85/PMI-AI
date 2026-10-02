@@ -6,6 +6,7 @@ import io.github.dbchoi85.pmiai.pmi.MiniPmi;
 import org.bouncycastle.cert.X509AttributeCertificateHolder;
 
 import java.security.KeyPair;
+import java.security.PublicKey;
 
 public final class EpgProvider implements AuthorizationProvider<EphemeralPrivilegeGrant> {
     private final MiniPmi pmi;
@@ -23,10 +24,18 @@ public final class EpgProvider implements AuthorizationProvider<EphemeralPrivile
         if (!pmi.verify(baseAc)) throw new IllegalStateException("Base AC validation failed");
     }
 
-    public EphemeralPrivilegeGrant issue() {
-        var child = epg.newAgentKeyPair();
+    public KeyPair newAgentKeyPair() {
+        return epg.newAgentKeyPair();
+    }
+
+    public EphemeralPrivilegeGrant issue(PublicKey childPublicKey) {
         return epg.issue("root-agent", "agent-" + (++sequence), "base-ac", "benchmark-task",
-                basePrivilege, "pmi-aa", 1, child.getPublic(), rootKey.getPrivate());
+                basePrivilege, "pmi-aa", 1, childPublicKey, rootKey.getPrivate());
+    }
+
+    @Override
+    public EphemeralPrivilegeGrant issue() {
+        return issue(newAgentKeyPair().getPublic());
     }
 
     public boolean verify(EphemeralPrivilegeGrant credential) {
