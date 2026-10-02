@@ -1,12 +1,11 @@
 package io.github.dbchoi85.pmiai.benchmark;
 
-import io.github.dbchoi85.pmiai.epg.*;
+import io.github.dbchoi85.pmiai.epg.DelegationChainService;
 import io.github.dbchoi85.pmiai.model.Privilege;
 import org.openjdk.jmh.annotations.*;
 
-import java.security.KeyPair;
 import java.time.Instant;
-import java.util.*;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(Mode.AverageTime)
@@ -16,29 +15,34 @@ public class DelegationDepthBenchmark {
     @Param({"1", "2", "3", "5", "10"})
     public int depth;
 
-    private final EpgService service = new EpgService();
-    private Privilege privilege;
-    private List<KeyPair> keys;
-    private List<EphemeralPrivilegeGrant> chain;
+    private DelegationChainService service;
+    private Privilege rootPrivilege;
+    private DelegationChainService.DelegationChain chain;
+
+    @Setup(Level.Trial)
+    public void setupTrial() {
+        service = new DelegationChainService();
+    }
 
     @Setup(Level.Invocation)
-    public void setup() {
-        privilege = new Privilege(Set.of("read"), "/project/A/src/", Instant.now().plusSeconds(300).getEpochSecond());
-        keys = new ArrayList<>();
-        chain = new ArrayList<>();
-        for (int i = 0; i <= depth; i++) keys.add(service.newAgentKeyPair());
-        for (int i = 0; i < depth; i++) {
-            chain.add(service.issue("agent-" + i, "agent-" + (i + 1), i == 0 ? "base-ac" : "epg-" + i,
-                    "task-" + i, privilege, "pmi-aa", i + 1, keys.get(i + 1).getPublic(), keys.get(i).getPrivate()));
-        }
+    public void setupInvocation() {
+        rootPrivilege = new Privilege(Set.of("read", "write"), "/project/A/**",
+                Instant.now().plusSeconds(3600).getEpochSecond());
+        chain = service.build(depth, rootPrivilege);
+    }
+
+    @Benchmark
+    public DelegationChainService.DelegationChain buildChain() {
+        return service.build(depth, rootPrivilege);
     }
 
     @Benchmark
     public boolean verifyChain() {
-        long now = System.currentTimeMillis() / 1000;
-        for (int i = 0; i < chain.size(); i++) {
-            if (!service.verify(chain.get(i), keys.get(i).getPublic(), privilege, now)) return false;
-        }
-        return true;
+        return service.verify(chain, System.currentTimeMillis() / 1000);
+    }
+
+    @Benchmark
+    public int encodedChainSize() {
+        return service.encodedSize(chain);
     }
 }
