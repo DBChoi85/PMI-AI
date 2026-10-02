@@ -182,3 +182,30 @@ For each protected action, the relying-party `ActionPolicy` declares a `Required
 - `DENY`: privilege, action, resource, task, or context policy fails.
 
 E5 measures the local AAL comparison/policy-decision path and the cost of producing a step-up trigger. It explicitly excludes the time required for a human to complete MFA or another authentication ceremony.
+
+
+### E6: adversarial authorization correctness
+
+E6 is a deterministic correctness suite rather than a latency benchmark. It executes one representative case for each defined attack category and records whether the authorization mechanism produces the expected safe decision.
+
+Attack matrix:
+
+- signature/signed-field tampering -> reject
+- operation privilege escalation -> reject
+- sibling resource-scope escalation -> reject
+- expired EPG -> reject
+- context mismatch -> deny
+- broken parent linkage -> reject
+- invalid delegation depth -> reject
+- insufficient human AAL provenance -> `STEP_UP_REQUIRED`
+
+The AAL case is intentionally not classified as a hard denial: when privilege and context remain valid, the architecture requires a human step-up rather than silently granting the action or permanently denying it.
+
+Run:
+
+```bash
+./gradlew test
+./gradlew adversarialSuite
+```
+
+The standalone suite prints a CSV-like case report and exits non-zero if any defined adversarial case is not blocked with the expected semantics.
