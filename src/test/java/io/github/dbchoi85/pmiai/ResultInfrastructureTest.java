@@ -14,11 +14,12 @@ class ResultInfrastructureTest {
 
     @Test
     void computesSummaryStatisticsFromRawNanoseconds() {
-        var samples = List.of(
-                sample(10), sample(20), sample(30), sample(40), sample(50)
-        );
+        var samples = List.of(sample(10, 1, 0), sample(20, 1, 0), sample(30, 1, 0),
+                sample(40, 1, 0), sample(50, 1, 0));
         var summary = ResultStatistics.summarize("E2", "TEST", samples);
 
+        assertEquals(1, summary.agentCount());
+        assertEquals(0, summary.depth());
         assertEquals(30.0, summary.meanNs());
         assertEquals(30.0, summary.medianNs());
         assertEquals(48.0, summary.p95Ns());
@@ -28,9 +29,16 @@ class ResultInfrastructureTest {
     }
 
     @Test
+    void refusesToMixDifferentParameterCells() {
+        var mixed = List.of(sample(10, 1, 0), sample(20, 10, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> ResultStatistics.summarize("E2", "TEST", mixed));
+    }
+
+    @Test
     void exportsRawSummaryAndEnvironmentFiles() throws Exception {
         var exporter = new ResultExporter();
-        var samples = List.of(sample(100), sample(200));
+        var samples = List.of(sample(100, 1, 0), sample(200, 1, 0));
         var summary = ResultStatistics.summarize("E2", "TEST", samples);
 
         Path raw = temp.resolve("raw/e2.csv");
@@ -42,12 +50,13 @@ class ResultInfrastructureTest {
         exporter.writeEnvironment(env, EnvironmentManifest.capture("abc123"));
 
         assertTrue(Files.readString(raw).startsWith("experiment,implementation,run,iteration"));
+        assertTrue(Files.readString(summaries).startsWith("experiment,implementation,agent_count,depth"));
         assertTrue(Files.readString(summaries).contains("median_ns"));
         assertTrue(Files.readString(env).contains("abc123"));
     }
 
-    private static BenchmarkSample sample(long totalNs) {
-        return new BenchmarkSample("E2", "TEST", 1, 1, 1, 0,
+    private static BenchmarkSample sample(long totalNs, int agentCount, int depth) {
+        return new BenchmarkSample("E2", "TEST", 1, 1, agentCount, depth,
                 0, 0, 0, 0, totalNs, 100, 1, true);
     }
 }
