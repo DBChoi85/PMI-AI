@@ -16,7 +16,7 @@ public final class ResultExportMain {
             Path raw = Path.of(args[0]);
             List<BenchmarkSample> samples = RawResultReader.read(raw);
             var grouped = samples.stream().collect(java.util.stream.Collectors.groupingBy(
-                    s -> s.experiment() + "\u0000" + s.implementation()));
+                    s -> s.experiment() + "\u0000" + s.implementation() + "\u0000" + s.agentCount() + "\u0000" + s.depth()));
             var summaries = grouped.values().stream().map(group -> ResultStatistics.summarize(
                     group.get(0).experiment(), group.get(0).implementation(), group)).toList();
             exporter.writeSummary(root.resolve("summary/summary.csv"), summaries);
