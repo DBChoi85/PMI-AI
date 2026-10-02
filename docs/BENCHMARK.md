@@ -27,15 +27,26 @@ A valid delegation must satisfy:
 1. **AC-per-Agent** — the AA issues an X.509 Attribute Certificate for each agent.
 2. **Base AC + EPG (proposed)** — the AA issues and validates one base AC for the root agent. The root then signs task-scoped Ephemeral Privilege Grants (EPGs) for children.
 
-NoAuth, JWT, static-PMI authorization, context/action policy, and NIST AAL provenance are planned ablations and are intentionally separated from the first credential-lifecycle benchmarks.
+E1 includes NoAuth, JWT, static-PMI authorization, and the proposed Base AC + EPG path. Context/action policy and NIST AAL provenance remain later ablations.
 
 ## Experiments
 
-### E1: credential operation overhead
+### E1: authorization overhead
 
-JMH benchmarks key generation, issuance/delegation, verification, and total lifecycle cost as distinct operations. EPG issuance receives a pre-generated child public key so that key-generation time is not silently included in delegation latency. The AC-per-Agent path does not generate an agent key because the current prototype AC is issued to an agent identifier rather than a newly generated subject key; adding artificial key generation to that baseline would distort the credential comparison.
+All implementations evaluate the same protected action: `read /project/A/src/module/file.txt` under the same child privilege. The common decision path is exposed through `RequestAuthorizer`.
 
-Metrics: mean latency, error, sample count; final analysis will additionally report median/p95/p99 from raw samples where applicable.
+Implementations:
+
+- NoAuth: unconditional allow; lower-bound request-processing baseline.
+- JWT: compact JWT signed and verified with Ed25519 plus the common privilege policy.
+- Static PMI: reused X.509 Attribute Certificate verification plus the common privilege policy.
+- Proposed: verified base PMI authority, attenuated child EPG verification, plus the common privilege policy.
+
+JWT uses Ed25519 so its signature verification primitive matches EPG as closely as practical. Static PMI retains RSA/SHA-256 because the current Mini-PMI AC implementation represents the X.509 PMI baseline; cryptographic differences must therefore be disclosed when interpreting absolute latency.
+
+JMH reports both AverageTime and Throughput for E1. Credential sizes are exposed by each authorizer for later result export.
+
+Credential lifecycle benchmarks separately measure key generation, issuance/delegation, verification, and total lifecycle cost. EPG issuance receives a pre-generated child public key so that key-generation time is not silently included in delegation latency.
 
 ### E2: ephemeral-agent lifecycle scalability
 

@@ -29,8 +29,15 @@ public final class EpgProvider implements AuthorizationProvider<EphemeralPrivile
     }
 
     public EphemeralPrivilegeGrant issue(PublicKey childPublicKey) {
+        return issue(childPublicKey, basePrivilege);
+    }
+
+    public EphemeralPrivilegeGrant issue(PublicKey childPublicKey, Privilege childPrivilege) {
+        if (!childPrivilege.attenuates(basePrivilege)) {
+            throw new IllegalArgumentException("Child privilege must attenuate base privilege");
+        }
         return epg.issue("root-agent", "agent-" + (++sequence), "base-ac", "benchmark-task",
-                basePrivilege, "pmi-aa", 1, childPublicKey, rootKey.getPrivate());
+                childPrivilege, "pmi-aa", 1, childPublicKey, rootKey.getPrivate());
     }
 
     @Override
