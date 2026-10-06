@@ -79,3 +79,17 @@ tasks.register('publicationBenchmark', JavaExec) {
         }
     }
 }
+
+
+tasks.register('copyBenchmarkRuntime', Copy) {
+    group = 'benchmark'
+    description = 'Copy runtime dependencies for direct java benchmark execution.'
+    from configurations.runtimeClasspath
+    into layout.buildDirectory.dir('benchmark-libs')
+}
+
+tasks.register('preparePublicationBenchmarks') {
+    group = 'benchmark'
+    description = 'Compile classes and prepare dependencies; measurements are run by java, not Gradle.'
+    dependsOn classes, copyBenchmarkRuntime
+}
