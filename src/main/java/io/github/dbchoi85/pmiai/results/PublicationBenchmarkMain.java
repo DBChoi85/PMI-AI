@@ -25,7 +25,8 @@ public final class PublicationBenchmarkMain {
             runE1(samples, run, iterations, warmups);
             runE2(samples, run, iterations, warmups);
             runE3(samples, run, iterations, warmups);
-            runE4E5(samples, run, iterations, warmups);
+            runE4(samples, run, iterations, warmups);
+            runE5(samples, run, iterations, warmups);
         }
 
         Path raw = Path.of("results/raw/publication.csv");
@@ -112,7 +113,7 @@ public final class PublicationBenchmarkMain {
         }
     }
 
-    private static void runE4E5(List<BenchmarkSample> out, int run, int iterations, int warmups) {
+    private static void runE4(List<BenchmarkSample> out, int run, int iterations, int warmups) {
         for (int rules : new int[]{1, 10, 100}) {
             long now = Instant.now().getEpochSecond();
             var privilege = new Privilege(Set.of("read", "write"), "/project/A/**", now + 86400);
@@ -123,26 +124,50 @@ public final class PublicationBenchmarkMain {
             var policy = new ActionPolicy("write", "/project/A/src/", "task-42", AuthenticatorAssuranceLevel.AAL2);
             var aal3 = new AuthorityProvenance("human-1", IdentityAssuranceLevel.IAL2,
                     AuthenticatorAssuranceLevel.AAL3, now - 60, "enterprise-idp", "nist-800-63");
-            var aal1 = new AuthorityProvenance("human-1", IdentityAssuranceLevel.IAL2,
-                    AuthenticatorAssuranceLevel.AAL1, now - 60, "enterprise-idp", "nist-800-63");
             var allowed = new ContextAssuranceAuthorizer(privilege, aal3, policy, attrs);
-            var stepUp = new ContextAssuranceAuthorizer(privilege, aal1, policy, attrs);
 
             for (int i = -warmups; i < iterations; i++) {
                 long start = System.nanoTime();
-                var e4 = allowed.authorize(request, context);
-                long e4Ns = System.nanoTime() - start;
-
-                start = System.nanoTime();
-                var e5 = stepUp.authorize(request, context);
-                long e5Ns = System.nanoTime() - start;
-
+                var decision = allowed.authorize(request, context);
+                long elapsed = System.nanoTime() - start;
                 if (i >= 0) {
                     out.add(sample("E4", "CONTEXT_POLICY_" + rules, run, i + 1, 0, 0,
-                            0, 0, 0, e4Ns, e4Ns, 0, 0, e4 == AuthorizationDecision.ALLOW));
-                    out.add(sample("E5", "AAL_STEP_UP_" + rules, run, i + 1, 0, 0,
-                            0, 0, 0, e5Ns, e5Ns, 0, 0, e5 == AuthorizationDecision.STEP_UP_REQUIRED));
+                            0, 0, 0, elapsed, elapsed, 0, 0, decision == AuthorizationDecision.ALLOW));
                 }
+            }
+        }
+    }
+
+    private static void runE5(List<BenchmarkSample> out, int run, int iterations, int warmups) {
+        long now = Instant.now().getEpochSecond();
+        var privilege = new Privilege(Set.of("read", "write"), "/project/A/**", now + 86400);
+        var request = new AuthorizationRequest("write", "/project/A/src/module/file.txt", now);
+        var context = new AuthorizationContext("task-42", Map.of("env", "prod"));
+        var policy = new ActionPolicy("write", "/project/A/src/", "task-42", AuthenticatorAssuranceLevel.AAL2);
+        var requiredContext = Map.of("env", "prod");
+        var aal3 = new AuthorityProvenance("human-1", IdentityAssuranceLevel.IAL2,
+                AuthenticatorAssuranceLevel.AAL3, now - 60, "enterprise-idp", "nist-800-63");
+        var aal1 = new AuthorityProvenance("human-1", IdentityAssuranceLevel.IAL2,
+                AuthenticatorAssuranceLevel.AAL1, now - 60, "enterprise-idp", "nist-800-63");
+        var satisfied = new ContextAssuranceAuthorizer(privilege, aal3, policy, requiredContext);
+        var stepUp = new ContextAssuranceAuthorizer(privilege, aal1, policy, requiredContext);
+
+        for (int i = -warmups; i < iterations; i++) {
+            long start = System.nanoTime();
+            var allowDecision = satisfied.authorize(request, context);
+            long allowNs = System.nanoTime() - start;
+
+            start = System.nanoTime();
+            var stepUpDecision = stepUp.authorize(request, context);
+            long stepUpNs = System.nanoTime() - start;
+
+            if (i >= 0) {
+                out.add(sample("E5", "AAL_SATISFIED", run, i + 1, 0, 0,
+                        0, 0, 0, allowNs, allowNs, 0, 0,
+                        allowDecision == AuthorizationDecision.ALLOW));
+                out.add(sample("E5", "AAL_STEP_UP", run, i + 1, 0, 0,
+                        0, 0, 0, stepUpNs, stepUpNs, 0, 0,
+                        stepUpDecision == AuthorizationDecision.STEP_UP_REQUIRED));
             }
         }
     }
