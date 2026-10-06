@@ -18,7 +18,7 @@ class DelegationChainServiceTest {
         long now = Instant.now().getEpochSecond();
         var root = new Privilege(Set.of("read", "write"), "/project/A/**", now + 3600);
 
-        for (int depth : new int[]{1, 2, 3, 5, 10}) {
+        for (int depth : new int[]{0, 1, 2, 3, 5, 10}) {
             var chain = service.build(depth, root);
             assertEquals(depth, chain.grants().size());
             assertTrue(service.verify(chain, now));
@@ -28,8 +28,23 @@ class DelegationChainServiceTest {
                 assertTrue(grant.privilege().expiresAtEpochSecond() < parentExpiry);
                 parentExpiry = grant.privilege().expiresAtEpochSecond();
             }
-            assertTrue(service.encodedSize(chain) > 0);
+            if (depth == 0) {
+                assertEquals(1, chain.keys().size());
+                assertEquals(0, service.encodedSize(chain));
+            } else {
+                assertTrue(service.encodedSize(chain) > 0);
+            }
         }
+    }
+
+    @Test
+    void rejectsNegativeDepth() {
+        var service = new DelegationChainService();
+        long now = Instant.now().getEpochSecond();
+        var root = new Privilege(Set.of("read"), "/project/A/**", now + 3600);
+
+        var error = assertThrows(IllegalArgumentException.class, () -> service.build(-1, root));
+        assertEquals("depth must be >= 0", error.getMessage());
     }
 
     @Test

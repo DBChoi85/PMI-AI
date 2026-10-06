@@ -10,7 +10,7 @@ public final class DelegationChainService {
     private final EpgService epg = new EpgService();
 
     public DelegationChain build(int depth, Privilege rootPrivilege) {
-        if (depth < 1) throw new IllegalArgumentException("depth must be >= 1");
+        if (depth < 0) throw new IllegalArgumentException("depth must be >= 0");
 
         var keys = new ArrayList<KeyPair>(depth + 1);
         for (int i = 0; i <= depth; i++) keys.add(epg.newAgentKeyPair());
