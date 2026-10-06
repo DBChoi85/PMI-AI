@@ -62,6 +62,9 @@ tasks.register('adversarialSuite', JavaExec) {
     description = 'Run the E6 adversarial authorization correctness suite.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'io.github.dbchoi85.pmiai.security.AdversarialSuiteMain'
+    if (project.hasProperty('attempts')) {
+        systemProperty 'pmiai.adversarialAttempts', project.property('attempts')
+    }
 }
 
 

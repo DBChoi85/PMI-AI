@@ -9,12 +9,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AdversarialAuthorizationSuiteTest {
     @Test
-    void blocksEveryDefinedAdversarialCaseWithExpectedSemantics() {
-        var result = new AdversarialAuthorizationSuite().run();
+    void safelyHandlesRepeatedAdversarialCasesAndLegitimateControls() {
+        int attempts = 3;
+        var result = new AdversarialAuthorizationSuite().run(attempts);
 
-        assertEquals(8, result.total());
-        assertEquals(8, result.blocked());
-        assertTrue(result.allBlocked());
+        assertEquals(9 * attempts, result.total());
+        assertEquals(8 * attempts, result.maliciousTotal());
+        assertEquals(8 * attempts, result.maliciousBlocked());
+        assertEquals(attempts, result.legitimateTotal());
+        assertEquals(attempts, result.legitimateAccepted());
+        assertTrue(result.allSafe());
         assertEquals(EnumSet.allOf(AttackCategory.class),
                 result.cases().stream().map(AdversarialCaseResult::category)
                         .collect(java.util.stream.Collectors.toCollection(() -> EnumSet.noneOf(AttackCategory.class))));
@@ -24,5 +28,12 @@ class AdversarialAuthorizationSuiteTest {
                 .findFirst().orElseThrow();
         assertEquals("STEP_UP_REQUIRED", aal.expectedDecision());
         assertEquals("STEP_UP_REQUIRED", aal.actualDecision());
+
+        var legitimate = result.cases().stream()
+                .filter(c -> c.category() == AttackCategory.LEGITIMATE_CONTROL)
+                .findFirst().orElseThrow();
+        assertFalse(legitimate.malicious());
+        assertEquals("ALLOW", legitimate.expectedDecision());
+        assertEquals("ALLOW", legitimate.actualDecision());
     }
 }

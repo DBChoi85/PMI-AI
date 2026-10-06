@@ -9,18 +9,23 @@ import java.time.Instant;
 import java.util.*;
 
 public final class AdversarialAuthorizationSuite {
-    public AdversarialSuiteResult run() {
+    public AdversarialSuiteResult run() { return run(100); }
+
+    public AdversarialSuiteResult run(int attemptsPerCategory) {
+        if (attemptsPerCategory < 1) throw new IllegalArgumentException("attemptsPerCategory must be positive");
         long now = Instant.now().getEpochSecond();
         var results = new ArrayList<AdversarialCaseResult>();
 
-        runGrantCases(now, results);
-        runChainCases(now, results);
-        runContextAssuranceCases(now, results);
-
+        for (int attempt = 1; attempt <= attemptsPerCategory; attempt++) {
+            runGrantCases(now, attempt, results);
+            runChainCases(now, attempt, results);
+            runContextAssuranceCases(now, attempt, results);
+            runLegitimateControl(now, attempt, results);
+        }
         return new AdversarialSuiteResult(results);
     }
 
-    private static void runGrantCases(long now, List<AdversarialCaseResult> results) {
+    private static void runGrantCases(long now, int attempt, List<AdversarialCaseResult> results) {
         var epg = new EpgService();
         var root = epg.newAgentKeyPair();
         var child = epg.newAgentKeyPair();
@@ -32,45 +37,46 @@ public final class AdversarialAuthorizationSuite {
         var tampered = new EphemeralPrivilegeGrant(grant.issuerAgent(), grant.subjectAgent(), grant.parentId(),
                 "tampered-task", grant.privilege(), grant.issuedAtEpochSecond(), grant.authorityId(),
                 grant.delegationDepth(), grant.subjectPublicKey(), grant.signature());
-        add(results, AttackCategory.SIGNATURE_TAMPERING,
+        add(results, AttackCategory.SIGNATURE_TAMPERING, attempt, true,
                 !epg.verify(tampered, root.getPublic(), parent, now), "REJECT", "signature verification");
 
         var operation = new Privilege(Set.of("read", "admin"), "/project/A/src/**", now + 300);
         var operationGrant = epg.issue("root", "child", "base-ac", "task-42", operation, "pmi-aa", 1,
                 child.getPublic(), root.getPrivate());
-        add(results, AttackCategory.OPERATION_ESCALATION,
+        add(results, AttackCategory.OPERATION_ESCALATION, attempt, true,
                 !epg.verify(operationGrant, root.getPublic(), parent, now), "REJECT", "privilege attenuation");
 
         var resource = new Privilege(Set.of("read"), "/project/AB/**", now + 300);
         var resourceGrant = epg.issue("root", "child", "base-ac", "task-42", resource, "pmi-aa", 1,
                 child.getPublic(), root.getPrivate());
-        add(results, AttackCategory.RESOURCE_ESCALATION,
+        add(results, AttackCategory.RESOURCE_ESCALATION, attempt, true,
                 !epg.verify(resourceGrant, root.getPublic(), parent, now), "REJECT", "resource attenuation");
 
         var expired = new Privilege(Set.of("read"), "/project/A/src/**", now - 1);
         var expiredGrant = epg.issue("root", "child", "base-ac", "task-42", expired, "pmi-aa", 1,
                 child.getPublic(), root.getPrivate());
-        add(results, AttackCategory.EXPIRED_GRANT,
+        add(results, AttackCategory.EXPIRED_GRANT, attempt, true,
                 !epg.verify(expiredGrant, root.getPublic(), parent, now), "REJECT", "expiry validation");
     }
 
-    private static void runChainCases(long now, List<AdversarialCaseResult> results) {
+    private static void runChainCases(long now, int attempt, List<AdversarialCaseResult> results) {
         var service = new DelegationChainService();
         var root = new Privilege(Set.of("read"), "/project/A/**", now + 3600);
         var chain = service.build(3, root);
 
         var brokenParent = replace(chain, 1, copy(chain.grants().get(1), "wrong-parent",
                 chain.grants().get(1).delegationDepth()));
-        add(results, AttackCategory.BROKEN_PARENT, !service.verify(brokenParent, now),
+        add(results, AttackCategory.BROKEN_PARENT, attempt, true, !service.verify(brokenParent, now),
                 "REJECT", "parent linkage");
 
         var invalidDepth = replace(chain, 1, copy(chain.grants().get(1),
                 chain.grants().get(1).parentId(), 9));
-        add(results, AttackCategory.INVALID_DEPTH, !service.verify(invalidDepth, now),
+        add(results, AttackCategory.INVALID_DEPTH, attempt, true, !service.verify(invalidDepth, now),
                 "REJECT", "delegation depth");
     }
 
-    private static void runContextAssuranceCases(long now, List<AdversarialCaseResult> results) {
+    private static void runContextAssuranceCases(long now, int attempt,
+                                                  List<AdversarialCaseResult> results) {
         var privilege = new Privilege(Set.of("write"), "/project/A/**", now + 300);
         var policy = new ActionPolicy("write", "/project/A/src/", "task-42", AuthenticatorAssuranceLevel.AAL2);
         var request = new AuthorizationRequest("write", "/project/A/src/file.txt", now);
@@ -80,20 +86,33 @@ public final class AdversarialAuthorizationSuite {
         var contextAuthorizer = new ContextAssuranceAuthorizer(privilege, aal3, policy, Map.of("env", "prod"));
         var contextDecision = contextAuthorizer.authorize(request,
                 new AuthorizationContext("task-42", Map.of("env", "dev")));
-        add(results, AttackCategory.CONTEXT_MISMATCH, contextDecision == AuthorizationDecision.DENY,
-                "DENY", contextDecision.name());
+        add(results, AttackCategory.CONTEXT_MISMATCH, attempt, true,
+                contextDecision == AuthorizationDecision.DENY, "DENY", contextDecision.name());
 
         var aal1 = new AuthorityProvenance("human-1", IdentityAssuranceLevel.IAL2,
                 AuthenticatorAssuranceLevel.AAL1, now - 60, "enterprise-idp", "nist-800-63");
         var aalAuthorizer = new ContextAssuranceAuthorizer(privilege, aal1, policy);
         var aalDecision = aalAuthorizer.authorize(request, new AuthorizationContext("task-42", Map.of()));
-        add(results, AttackCategory.INSUFFICIENT_AAL, aalDecision == AuthorizationDecision.STEP_UP_REQUIRED,
+        add(results, AttackCategory.INSUFFICIENT_AAL, attempt, true,
+                aalDecision == AuthorizationDecision.STEP_UP_REQUIRED,
                 "STEP_UP_REQUIRED", aalDecision.name());
     }
 
-    private static void add(List<AdversarialCaseResult> results, AttackCategory category,
-                            boolean blocked, String expected, String actual) {
-        results.add(new AdversarialCaseResult(category, blocked, expected, actual));
+    private static void runLegitimateControl(long now, int attempt, List<AdversarialCaseResult> results) {
+        var privilege = new Privilege(Set.of("write"), "/project/A/**", now + 300);
+        var policy = new ActionPolicy("write", "/project/A/src/", "task-42", AuthenticatorAssuranceLevel.AAL2);
+        var provenance = new AuthorityProvenance("human-1", IdentityAssuranceLevel.IAL2,
+                AuthenticatorAssuranceLevel.AAL3, now - 60, "enterprise-idp", "nist-800-63");
+        var authorizer = new ContextAssuranceAuthorizer(privilege, provenance, policy, Map.of("env", "prod"));
+        var decision = authorizer.authorize(new AuthorizationRequest("write", "/project/A/src/file.txt", now),
+                new AuthorizationContext("task-42", Map.of("env", "prod")));
+        add(results, AttackCategory.LEGITIMATE_CONTROL, attempt, false,
+                decision == AuthorizationDecision.ALLOW, "ALLOW", decision.name());
+    }
+
+    private static void add(List<AdversarialCaseResult> results, AttackCategory category, int attempt,
+                            boolean malicious, boolean safeOutcome, String expected, String actual) {
+        results.add(new AdversarialCaseResult(category, attempt, malicious, safeOutcome, expected, actual));
     }
 
     private static DelegationChainService.DelegationChain replace(
