@@ -80,7 +80,9 @@ Expected structural difference, not a performance assumption:
 
 ### E3: delegation depth
 
-Depths: 1, 2, 3, 5, 10.
+Depths: 0, 1, 2, 3, 4, 5, 10.
+
+Depths 0-5 are the direct comparison range aligned with the official AIP chained-token benchmark (100 iterations per depth). Depth 10 is retained as an EPG-only scalability extension.
 
 E3 separates chain construction from chain verification with independent JMH states. The construction state contains only the service, depth, and root privilege; it does not pre-build a chain before the measured method. Chain construction therefore measures generation of the per-hop Ed25519 key pairs and signing of each EPG without an immediately preceding unmeasured construction at the same depth.
 
@@ -105,7 +107,7 @@ Metrics:
 
 Negative tests cover privilege escalation, lifetime extension, broken parent linkage, invalid depth, and signed-field/signature tampering.
 
-This experiment is the preferred location for a later reproduced AIP/capability-delegation baseline because it exercises comparable multi-hop semantics.
+For the SAC 2027 comparison, the reproduced AIP baseline is the authors' official Rust implementation from `sunilp/aip`, pinned at commit `0ad099d354561b750517827b519f34eac98af98b`. The AIP source is executed without algorithmic modification on the same physical host as EPG. Published AIP measurements are used only as a reproduction sanity check; direct performance comparisons use same-host measurements. Runtime/language differences (Rust for AIP and Java for EPG) are reported as an experimental limitation.
 
 ## Methodology
 
@@ -169,7 +171,7 @@ The publication-data path executes E1-E5 directly and records every measured rep
 GIT_COMMIT=$(git rev-parse HEAD) ./gradlew publicationBenchmark
 ```
 
-Defaults are 3 runs, 3 discarded warm-ups per parameter cell, and 10 recorded iterations. They can be overridden explicitly:
+Defaults are 3 runs, 3 discarded warm-ups per parameter cell, and 10 recorded iterations. For the AIP-aligned E3 publication comparison, run the publication harness with 100 recorded samples per depth (for example, `-Pruns=10 -Piterations=10`) so the measured sample count matches AIP's 100 iterations per depth. They can be overridden explicitly:
 
 ```bash
 GIT_COMMIT=$(git rev-parse HEAD) ./gradlew publicationBenchmark \
@@ -247,7 +249,7 @@ E4/E5 values must not be added to or compared with E1 as though all three were i
 
 Current prototype limitations relevant to result interpretation are documented in `ARCHITECTURE.md`: replay prevention, a configured maximum delegation-depth policy, cryptographic parent-grant identifiers, and independently EPG-signed assurance-provenance fields are outside the evaluated implementation. E6 therefore reports deterministic correctness for implemented invariants rather than a complete production-security claim.
 
-A reproduced public agent-native delegation implementation remains a future comparative baseline; published measurements from other hardware remain contextual reference points only.
+The reproduced AIP implementation is the direct agent-native delegation baseline for E3. Only same-host reproduced measurements are used for direct performance comparison; published measurements from other hardware remain contextual reference points.
 
 
 ## Final benchmark-readiness controls

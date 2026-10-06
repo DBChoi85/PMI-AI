@@ -89,7 +89,8 @@ public final class PublicationBenchmarkMain {
 
     private static void runE3(List<BenchmarkSample> out, int run, int iterations, int warmups) {
         var service = new DelegationChainService();
-        for (int depth : new int[]{1, 2, 3, 5, 10}) {
+        // Depths 0-5 align with the AIP chained-token evaluation; depth 10 is an EPG-only extension.
+        for (int depth : new int[]{0, 1, 2, 3, 4, 5, 10}) {
             for (int i = -warmups; i < iterations; i++) {
                 long now = Instant.now().getEpochSecond();
                 var root = new Privilege(Set.of("read", "write"), "/project/A/**", now + 86400);
