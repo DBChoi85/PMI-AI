@@ -182,7 +182,7 @@ This command writes:
 - `results/summary/summary.csv`
 - `results/environment.json`
 
-Summary cells are grouped by experiment, implementation, agent count, and delegation depth so E2 population sizes and E3 depths are never pooled into the same percentile distribution. E4/E5 context-rule counts are encoded in their implementation labels because they are neither agent counts nor delegation depths.
+Summary cells are grouped by experiment, implementation, agent count, and delegation depth so E2 population sizes and E3 depths are never pooled into the same percentile distribution. E4 context-rule counts are encoded in implementation labels because they are neither agent counts nor delegation depths. E5 uses fixed context and separate `AAL_SATISFIED` and `AAL_STEP_UP` implementation labels.
 
 The existing `exportBenchmarkMetadata -PrawFile=...` task remains available for re-summarizing a canonical raw CSV without rerunning the experiment.
 
@@ -202,23 +202,23 @@ For each protected action, the relying-party `ActionPolicy` declares a `Required
 - `STEP_UP_REQUIRED`: privilege/context are valid but the preserved human AAL provenance is below `RequiredAAL`.
 - `DENY`: privilege, action, resource, task, or context policy fails.
 
-E5 measures the local AAL comparison/policy-decision path and the cost of producing a step-up trigger. EPG signature/credential verification is not part of E5 and is measured separately in E1. E5 must therefore not be reported as end-to-end authorization latency. It explicitly excludes the time required for a human to complete MFA or another authentication ceremony.
+E5 uses a fixed matching context and independently measures two paths: `AAL_SATISFIED` (AAL3 provenance with RequiredAAL2 -> `ALLOW`) and `AAL_STEP_UP` (AAL1 provenance with RequiredAAL2 -> `STEP_UP_REQUIRED`). It measures the local AAL comparison/policy-decision path and the cost of producing a step-up trigger. EPG signature/credential verification is not part of E5 a### E6: adversarial authorization correctness
 
+E6 is a deterministic authorization-layer security evaluation under an already-compromised child-agent assumption. It does not measure whether an LLM can be induced by prompt injection; malicious authorization requests are injected directly so that the authorization mechanism itself is evaluated.
 
-### E6: adversarial authorization correctness
-
-E6 is a deterministic correctness suite rather than a latency benchmark. It executes one representative case for each defined attack category and records whether the authorization mechanism produces the expected safe decision.
+By default, each attack category is executed 100 times. The suite reports per-category safe-outcome rates, aggregate malicious-request rejection rate, and legitimate-request acceptance rate. A legitimate control request is repeated alongside the malicious cases so false denials are observable.
 
 Attack matrix:
 
 - signature/signed-field tampering -> reject
 - operation privilege escalation -> reject
-- sibling resource-scope escalation -> reject
-- expired EPG -> reject
+- sibling/out-of-scope resource escalation -> reject
+- expired EPG / replay after expiry -> reject
 - context mismatch -> deny
 - broken parent linkage -> reject
 - invalid delegation depth -> reject
 - insufficient human AAL provenance -> `STEP_UP_REQUIRED`
+- legitimate matching request -> `ALLOW`
 
 The AAL case is intentionally not classified as a hard denial: when privilege and context remain valid, the architecture requires a human step-up rather than silently granting the action or permanently denying it.
 
@@ -227,10 +227,11 @@ Run:
 ```bash
 ./gradlew test
 ./gradlew adversarialSuite
+# optional non-default repetition count
+./gradlew adversarialSuite -Pattempts=100
 ```
 
-The standalone suite prints a CSV-like case report and exits non-zero if any defined adversarial case is not blocked with the expected semantics.
-
+The standalone suite exits non-zero if any malicious attempt is not safely rejected/denied/stepped-up as specified or if a legitimate control request is falsely denied.
 
 ## Interpretation boundaries
 
