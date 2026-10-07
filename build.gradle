@@ -93,3 +93,13 @@ tasks.register('preparePublicationBenchmarks') {
     description = 'Compile classes and prepare dependencies; measurements are run by java, not Gradle.'
     dependsOn classes, copyBenchmarkRuntime
 }
+
+
+tasks.register('projectMeetingWorkflow', JavaExec) {
+    group = 'verification'
+    description = 'Run the Project Alpha multi-agent privilege-confinement workflow.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.dbchoi85.pmiai.workflow.ProjectMeetingWorkflowMain'
+    if (project.hasProperty('workflowIterations')) systemProperty 'pmiai.workflowIterations', project.property('workflowIterations')
+    if (project.hasProperty('workflowOutput')) systemProperty 'pmiai.workflowOutput', project.property('workflowOutput')
+}
