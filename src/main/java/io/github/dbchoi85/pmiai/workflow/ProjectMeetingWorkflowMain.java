@@ -1,0 +1,24 @@
+package io.github.dbchoi85.pmiai.workflow;
+
+import io.github.dbchoi85.pmiai.epg.*;
+import io.github.dbchoi85.pmiai.model.Privilege;
+import java.nio.file.*; import java.security.*; import java.util.*;
+
+public final class ProjectMeetingWorkflowMain {
+ private final EpgService epg=new EpgService();
+ public static void main(String[] a)throws Exception { int n=Integer.getInteger("pmiai.workflowIterations",100); Path p=Path.of(System.getProperty("pmiai.workflowOutput","results/project-meeting-workflow.csv")); new ProjectMeetingWorkflowMain().run(n,p); }
+ void run(int n,Path out)throws Exception { List<String> rows=new ArrayList<>(); rows.add("iteration,case,expected,actual,correct"); for(int i=1;i<=n;i++) once(i,rows); if(out.getParent()!=null)Files.createDirectories(out.getParent()); Files.write(out,rows); System.out.println("Wrote "+(rows.size()-1)+" checks to "+out); }
+ private void once(int i,List<String> r){ long now=2_000_000_000L; KeyPair root=epg.newAgentKeyPair(),mail=epg.newAgentKeyPair(),cal=epg.newAgentKeyPair(),avail=epg.newAgentKeyPair(),drive=epg.newAgentKeyPair();
+  Privilege rp=new Privilege(Set.of("mail.search","mail.read","calendar.freebusy.read","calendar.event.create","drive.search","drive.read"),"/project-alpha/**",now+600);
+  Privilege mp=new Privilege(Set.of("mail.search","mail.read"),"/project-alpha/mail/**",now+120), cp=new Privilege(Set.of("calendar.freebusy.read","calendar.event.create"),"/project-alpha/calendar/**",now+180), dp=new Privilege(Set.of("drive.search","drive.read"),"/project-alpha/drive/**",now+120);
+  var mg=epg.issue("orchestrator","mail-agent","base-ac","project-alpha-meeting",mp,"pmi-aa",1,mail.getPublic(),root.getPrivate()); var cg=epg.issue("orchestrator","calendar-agent","base-ac","project-alpha-meeting",cp,"pmi-aa",1,cal.getPublic(),root.getPrivate()); var dg=epg.issue("orchestrator","drive-agent","base-ac","project-alpha-meeting",dp,"pmi-aa",1,drive.getPublic(),root.getPrivate());
+  check(r,i,"LEGITIMATE_MAIL_READ","ALLOW",allow(mg,root.getPublic(),rp,mp,"mail-agent",mail,"mail.read","/project-alpha/mail/message-17",now)); check(r,i,"LEGITIMATE_CALENDAR_CREATE","ALLOW",allow(cg,root.getPublic(),rp,cp,"calendar-agent",cal,"calendar.event.create","/project-alpha/calendar/meeting-1",now)); check(r,i,"LEGITIMATE_DRIVE_READ","ALLOW",allow(dg,root.getPublic(),rp,dp,"drive-agent",drive,"drive.read","/project-alpha/drive/agenda.pdf",now));
+  check(r,i,"OPERATION_ESCALATION","DENY",allow(mg,root.getPublic(),rp,mp,"mail-agent",mail,"mail.delete","/project-alpha/mail/message-17",now)); check(r,i,"RESOURCE_SCOPE_ESCAPE","DENY",allow(dg,root.getPublic(),rp,dp,"drive-agent",drive,"drive.read","/hr/performance-review.xlsx",now));
+  Privilege ap=new Privilege(Set.of("calendar.freebusy.read"),"/project-alpha/calendar/availability/**",now+30); var ag=epg.issue("calendar-agent","availability-agent","epg-calendar","project-alpha-meeting",ap,"pmi-aa",2,avail.getPublic(),cal.getPrivate()); check(r,i,"LEGITIMATE_TRANSITIVE_DELEGATION","ALLOW",allow(ag,cal.getPublic(),cp,ap,"availability-agent",avail,"calendar.freebusy.read","/project-alpha/calendar/availability/alice",now));
+  Privilege esc=new Privilege(Set.of("calendar.freebusy.read","calendar.event.delete"),"/project-alpha/calendar/**",now+30); var eg=epg.issue("calendar-agent","availability-agent","epg-calendar","project-alpha-meeting",esc,"pmi-aa",2,avail.getPublic(),cal.getPrivate()); check(r,i,"TRANSITIVE_OPERATION_ESCALATION","DENY",epg.verify(eg,cal.getPublic(),cp,now));
+  Privilege over=new Privilege(Set.of("calendar.freebusy.read"),"/project-alpha/calendar/availability/**",cp.expiresAtEpochSecond()+1); var og=epg.issue("calendar-agent","availability-agent","epg-calendar","project-alpha-meeting",over,"pmi-aa",2,avail.getPublic(),cal.getPrivate()); check(r,i,"PARENT_LIFETIME_VIOLATION","DENY",epg.verify(og,cal.getPublic(),cp,now));
+  check(r,i,"EXPIRED_GRANT_REUSE","DENY",allow(ag,cal.getPublic(),cp,ap,"availability-agent",avail,"calendar.freebusy.read","/project-alpha/calendar/availability/alice",ap.expiresAtEpochSecond()+1)); check(r,i,"CROSS_AGENT_AUTHORITY_MISUSE","DENY",allow(mg,root.getPublic(),rp,mp,"calendar-agent",cal,"mail.read","/project-alpha/mail/message-17",now));
+ }
+ private boolean allow(EphemeralPrivilegeGrant g,PublicKey issuer,Privilege parent,Privilege effective,String caller,KeyPair key,String op,String res,long now){ if(!epg.verify(g,issuer,parent,now)||!EpgSubjectBinding.matches(g,caller,key.getPublic())||effective.expiresAtEpochSecond()<now||!effective.operations().contains(op))return false; String s=effective.resource(),b=s.endsWith("/**")?s.substring(0,s.length()-3):s; return res.equals(b)||(s.endsWith("/**")&&res.startsWith(b+"/")); }
+ private static void check(List<String> r,int i,String c,String e,boolean a){String actual=a?"ALLOW":"DENY";r.add(i+","+c+","+e+","+actual+","+e.equals(actual));}
+}
