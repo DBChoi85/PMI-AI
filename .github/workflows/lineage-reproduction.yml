@@ -1,0 +1,122 @@
+name: Lineage upstream reproduction (pinned)
+
+on:
+  push:
+    branches:
+      - experiment/lineage-reproduction-20261123
+
+permissions:
+  contents: read
+
+jobs:
+  original-offline-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Fetch upstream author source at exact SHA (no PMI-AI source checkout)
+        uses: actions/checkout@v4
+        with:
+          repository: StefanescuStefania/uma-agent
+          ref: f7e6422d753c6cac41ec1bc334ea696df197cf5a
+          persist-credentials: false
+          path: upstream
+      - name: Install author's Python 3.12 runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify pinned source, record runner
+        shell: bash
+        run: |
+          mkdir -p lineage-evidence
+          set -euo pipefail
+          test "$(git -C upstream rev-parse HEAD)" = "f7e6422d753c6cac41ec1bc334ea696df197cf5a"
+          {
+            echo "upstream_sha=$(git -C upstream rev-parse HEAD)"
+            echo "runner_os=$(uname -a)"
+            echo "python=$(python --version)"
+            echo "docker=$(docker --version)"
+            echo "compose=$(docker compose version)"
+            echo "upstream_git_status=$(git -C upstream status --porcelain)"
+          } | tee lineage-evidence/environment.txt
+      - name: Install unmodified upstream requirements
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r requirements.txt 2>&1 | tee ../lineage-evidence/pip-install.log
+          python -m pip freeze > ../lineage-evidence/pip-freeze.txt
+      - name: Run author's original offline test command
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/ -q --junitxml=../lineage-evidence/junit.xml 2>&1 | tee ../lineage-evidence/pytest.log
+      - name: Upload exact execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lineage-original-offline-tests
+          path: lineage-evidence/
+          if-no-files-found: warn
+
+  original-distributed-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: uma-agent
+      NETWORK_LATENCY_MS: '10'
+      NETWORK_JITTER_MS: '2'
+      N_HTTP: '30'
+      N_PYTHON: '1000'
+    steps:
+      - name: Fetch upstream author source at exact SHA
+        uses: actions/checkout@v4
+        with:
+          repository: StefanescuStefania/uma-agent
+          ref: f7e6422d753c6cac41ec1bc334ea696df197cf5a
+          persist-credentials: false
+          path: upstream
+      - name: Prepare independent runner evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p lineage-evidence upstream/paper_evidence
+          test "$(git -C upstream rev-parse HEAD)" = "f7e6422d753c6cac41ec1bc334ea696df197cf5a"
+          {
+            echo "upstream_sha=$(git -C upstream rev-parse HEAD)"
+            echo "runner_os=$(uname -a)"
+            echo "docker=$(docker --version)"
+            echo "compose=$(docker compose version)"
+            echo "project_name=$COMPOSE_PROJECT_NAME"
+            echo "hardware differs from author's 28-CPU/31-GB host"
+          } | tee lineage-evidence/environment.txt
+      - name: Bootstrap author's prebuilt agent image requirement (no source edit)
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f docker-compose.distributed.yml build resource-server 2>&1 | tee ../lineage-evidence/image-build.log
+          docker build -f Dockerfile.agent -t uma-agent-benchmark:latest . 2>&1 | tee -a ../lineage-evidence/image-build.log
+      - name: Run exact author distributed benchmark script
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/run_distributed_benchmark.sh 2>&1 | tee ../lineage-evidence/distributed.log
+      - name: Record any container diagnostics and clean test-only containers
+        if: always()
+        working-directory: upstream
+        shell: bash
+        run: |
+          docker compose -f docker-compose.distributed.yml ps -a > ../lineage-evidence/docker-ps.log 2>&1 || true
+          docker compose -f docker-compose.distributed.yml logs --no-color --tail 200 > ../lineage-evidence/compose-services.log 2>&1 || true
+          docker compose -f docker-compose.distributed.yml down --remove-orphans >/dev/null 2>&1 || true
+      - name: Upload original JSON and diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lineage-original-distributed-benchmark
+          path: |
+            lineage-evidence/
+            upstream/paper_evidence/
+          if-no-files-found: warn
