@@ -1,0 +1,72 @@
+name: Lineage original HTTP concurrent load (pinned)
+
+on:
+  push:
+    branches:
+      - experiment/lineage-http-load-20261123
+
+permissions:
+  contents: read
+
+jobs:
+  author-http-load:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: uma-agent
+      NETWORK_LATENCY_MS: '10'
+      NETWORK_JITTER_MS: '2'
+      N_REQUESTS: '30'
+    steps:
+      - name: Fetch exact upstream original source (no PMI-AI source checkout)
+        uses: actions/checkout@v4
+        with:
+          repository: StefanescuStefania/uma-agent
+          ref: f7e6422d753c6cac41ec1bc334ea696df197cf5a
+          persist-credentials: false
+          path: upstream
+      - name: Record original commit and isolation properties
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p lineage-evidence upstream/paper_evidence
+          test "$(git -C upstream rev-parse HEAD)" = "f7e6422d753c6cac41ec1bc334ea696df197cf5a"
+          {
+            echo "upstream_sha=$(git -C upstream rev-parse HEAD)"
+            echo "hardware=$(uname -a)"
+            echo "docker=$(docker --version)"
+            echo "compose=$(docker compose version)"
+            echo "command=./scripts/run_load_test.sh"
+            echo "network_project=uma-agent"
+            echo "note=CI runner does not match author's 28CPU/31GB host"
+          } | tee lineage-evidence/environment.txt
+      - name: Bootstrap original dependency images without editing upstream
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f docker-compose.distributed.yml build resource-server 2>&1 | tee ../lineage-evidence/image-build.log
+          docker build -f Dockerfile.agent -t uma-agent-benchmark:latest . 2>&1 | tee -a ../lineage-evidence/image-build.log
+      - name: Execute author's original 20-agent HTTP attack/concurrency script
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/run_load_test.sh 2>&1 | tee ../lineage-evidence/load-test.log
+      - name: Gather container diagnostics and clean isolated runner
+        if: always()
+        working-directory: upstream
+        shell: bash
+        run: |
+          docker compose -f docker-compose.distributed.yml ps -a > ../lineage-evidence/compose-ps.log 2>&1 || true
+          docker compose -f docker-compose.distributed.yml logs --no-color --tail 200 > ../lineage-evidence/compose-logs.log 2>&1 || true
+          docker compose -f docker-compose.distributed.yml down --remove-orphans >/dev/null 2>&1 || true
+      - name: Preserve independent evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lineage-original-http-load
+          path: |
+            lineage-evidence/
+            upstream/paper_evidence/
+          if-no-files-found: warn
