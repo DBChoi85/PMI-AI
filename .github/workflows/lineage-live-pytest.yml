@@ -1,0 +1,90 @@
+name: Lineage live Keycloak/resource-server pytest (pinned)
+
+on:
+  push:
+    branches:
+      - experiment/lineage-live-pytest-20261123
+
+permissions:
+  contents: read
+
+jobs:
+  live-original-pytest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      COMPOSE_PROJECT_NAME: uma-agent
+    steps:
+      - name: Fetch original author source at full SHA
+        uses: actions/checkout@v4
+        with:
+          repository: StefanescuStefania/uma-agent
+          ref: f7e6422d753c6cac41ec1bc334ea696df197cf5a
+          persist-credentials: false
+          path: upstream
+      - name: Use original Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record pinned commit and runner environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p lineage-evidence
+          test "$(git -C upstream rev-parse HEAD)" = "f7e6422d753c6cac41ec1bc334ea696df197cf5a"
+          {
+            echo "upstream_sha=$(git -C upstream rev-parse HEAD)"
+            echo "os=$(uname -a)"
+            echo "python=$(python --version)"
+            echo "docker=$(docker --version)"
+            echo "compose=$(docker compose version)"
+          } | tee lineage-evidence/environment.txt
+      - name: Install original requirements on host test client
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r requirements.txt 2>&1 | tee ../lineage-evidence/pip-install.log
+          python -m pip freeze > ../lineage-evidence/pip-freeze.txt
+      - name: Start author's unmodified Keycloak PostgreSQL FastAPI services
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose up -d --build 2>&1 | tee ../lineage-evidence/compose-up.log
+          for i in $(seq 1 120); do
+            if curl -sf http://localhost:5000/ >/dev/null && curl -sf http://localhost:8080/realms/test-realm/.well-known/openid-configuration >/dev/null; then
+              echo "Keycloak and resource server ready after probe $i" | tee -a ../lineage-evidence/compose-up.log
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Timed out waiting for live services" | tee -a ../lineage-evidence/compose-up.log
+          exit 1
+      - name: Run original README Keycloak initialization command
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          python keycloak/init-keycloak.py 2>&1 | tee ../lineage-evidence/keycloak-init.log
+      - name: Execute all original tests with live HTTP integrations
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/ -q -rs --junitxml=../lineage-evidence/junit-live.xml 2>&1 | tee ../lineage-evidence/pytest-live.log
+      - name: Capture server diagnostic logs and remove test-only containers
+        if: always()
+        working-directory: upstream
+        shell: bash
+        run: |
+          docker compose ps -a > ../lineage-evidence/compose-ps.log 2>&1 || true
+          docker compose logs --no-color --tail 350 > ../lineage-evidence/compose-logs.log 2>&1 || true
+          docker compose down --remove-orphans >/dev/null 2>&1 || true
+      - name: Preserve live test evidence and failures if any
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lineage-live-original-pytest
+          path: lineage-evidence/
+          if-no-files-found: warn
